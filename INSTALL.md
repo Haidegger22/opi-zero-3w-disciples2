@@ -31,7 +31,8 @@ cd ~/opi-zero-3w-disciples2
 mkdir -p ~/.local/bin
 install -m755 scripts/disc2-zero.sh scripts/fix-mmdevenum.sh \
               scripts/fix-rpcss-service.sh scripts/diagnose-wine-prefix.sh \
-              scripts/verify-launcher.sh ~/.local/bin/
+              scripts/verify-launcher.sh scripts/d2-ini-set.sh \
+              scripts/set-resolution.sh scripts/verify-game-state.sh ~/.local/bin/
 ls -l ~/.local/bin/ | grep -E 'disc2|mmdev|rpcss|diagnose|verify'
 ```
 
@@ -133,6 +134,29 @@ GAME_DIR=/путь/к/игре disc2-zero.sh
 Скрипт правит ключ `DisplayMode` в `Disciple.ini` (в самом файле подсказка: `0=full-screen,
 1=windowed`), рядом остаётся бэкап `Disciple.ini.backup-ГГГГММДД-ЧЧММ`.
 
+## Шаг 11. Разрешение, темп и настройки игры (`Disciple.ini`)
+
+```bash
+~/.local/bin/verify-game-state.sh          # что сейчас: игра, окно, настройки, бэкапы (только чтение)
+~/.local/bin/set-resolution.sh 1024 600    # рисовать по размеру экрана (нужен HD=1)
+~/.local/bin/d2-ini-set.sh BattleSpeed 1   # скорость боя: 1 медленно … 4 мгновенно
+~/.local/bin/d2-ini-set.sh SpeedEnabled 0  # выключить ускоритель анимации обёртки
+```
+
+Сборка по умолчанию идёт с `DisplayWidth=800`, а экран платы — 1024×600, то есть кадр
+растягивается. `set-resolution.sh 1024 600` ставит размер экрана: окно становится ровно по
+режиму (`xdotool getwindowgeometry` → `WIDTH=1024 HEIGHT=600`), а кадр заметно детальнее
+(PNG-скриншот того же экрана вырос с 416 КБ до 889 КБ).
+
+Если бой или анимация кажутся ускоренными — виноват не `BattleSpeed`, а **ускоритель обёртки**:
+`SpeedEnabled=1` вместе с `GameSpeed=5` даёт анимацию в 1,5× быстрее обычной. Разбор этого случая
+и полный справочник параметров русской обёртки (`C4dll-R.dll`) — в `docs/WRAPPER-AND-GAME-SETTINGS.md`.
+
+Важно: `Disciple.ini` в кодировке **cp1251**, поэтому правьте его скриптом `d2-ini-set.sh`
+(он закрывает игру, делает бэкап и показывает диф), а не `sed`. Игра **перезаписывает** этот файл
+своими настройками — правки делайте при закрытой игре и сверяйте диф с бэкапом: пустой диф
+означает, что вы поменяли то, что уже стояло.
+
 ## Важно
 
 - Вывод звука на этой плате: **Bluetooth-колонка** (A2DP, кодек SBC) либо **HDMI**
@@ -159,7 +183,7 @@ cp "$WINEPREFIX"/system.reg.backup-ГГГГММДД-ЧЧММ "$WINEPREFIX"/syste
 
 # убрать ярлыки и скрипты
 rm -f ~/Desktop/disciples2.desktop ~/.local/share/applications/disciples2.desktop
-rm -f ~/.local/bin/{disc2-zero,fix-mmdevenum,fix-rpcss-service,diagnose-wine-prefix,verify-launcher}.sh
+rm -f ~/.local/bin/{disc2-zero,fix-mmdevenum,fix-rpcss-service,diagnose-wine-prefix,verify-launcher,d2-ini-set,set-resolution,verify-game-state}.sh
 ```
 
 ---
@@ -730,7 +754,162 @@ SCRIPT_EOF
 chmod +x $HOME/.local/bin/set-fullscreen.sh 2>/dev/null || true
 ```
 
-### 8. То же, что fix-mmdevenum, но файлом .reg
+### 8. Правка одного параметра Disciple.ini (бэкап + диф)
+
+```bash
+mkdir -p $(dirname $HOME/.local/bin/d2-ini-set.sh)
+cat > $HOME/.local/bin/d2-ini-set.sh << 'SCRIPT_EOF'
+#!/bin/bash
+# d2-ini-set.sh <КЛЮЧ> <ЗНАЧЕНИЕ> — правка ОДНОГО параметра в Disciple.ini.
+#
+# Зачем именно так, а не sed/правкой руками:
+#   * файл в кодировке cp1251 — sed/редакторы портят кириллицу (имя игрока, локаль);
+#   * игра перезаписывает Disciple.ini своими настройками, поэтому нужен бэкап и диф:
+#     пустой диф = вы правите то, что уже стоит (см. docs/WRAPPER-AND-GAME-SETTINGS.md);
+#   * правка на работающей игре может не примениться.
+#
+# Примеры:
+#   ./d2-ini-set.sh BattleSpeed 2        # скорость боя: 1 медленно … 4 мгновенно
+#   ./d2-ini-set.sh SpeedEnabled 0      # ускоритель анимации обёртки выключить
+#   ./d2-ini-set.sh DisplayWidth 1024
+set -u
+GAME="${GAME_DIR:-$HOME/d2-ru-pack/app}"
+INI="$GAME/Disciple.ini"
+KEY="${1:?нужен ключ, например BattleSpeed}"
+VAL="${2:?нужно значение, например 1}"
+
+[ -f "$INI" ] || { echo "нет файла $INI (задайте GAME_DIR)"; exit 1; }
+
+echo "=== 0) игра должна быть закрыта ==="
+if pgrep -x Discipl2.exe >/dev/null 2>&1; then
+    echo "   игра работает — закрываю, иначе правка не применится"
+    pkill -x Discipl2.exe 2>/dev/null; sleep 2
+    WINEPREFIX="${WINEPREFIX:-$HOME/.wine-hg2}" timeout -s KILL 25 wineserver -k 2>/dev/null; sleep 1
+fi
+echo "   процессов игры: $(pgrep -xc Discipl2.exe 2>/dev/null | head -1)"
+
+STAMP=$(date +%Y%m%d-%H%M%S-%3N)   # миллисекунды: два запуска в одну секунду не затирают бэкап
+cp -a "$INI" "$INI.backup-$STAMP" && echo "=== 1) бэкап: $INI.backup-$STAMP"
+
+echo "=== 2) было / стало ($KEY) ==="
+iconv -f cp1251 -t utf-8 "$INI" | grep -aiE "^$KEY=" | tr -d '\r' | sed 's/^/   было:  /'
+python3 - "$INI" "$KEY" "$VAL" <<'PY'
+import io, re, sys
+p, k, v = sys.argv[1], sys.argv[2], sys.argv[3]
+raw = io.open(p, encoding="cp1251", errors="surrogateescape", newline="").read()
+new, n = re.subn(r'(?mi)^' + re.escape(k) + r'\s*=\s*[^\r\n]*', k + "=" + v, raw, count=1)
+if n == 0:
+    print("   ВНИМАНИЕ: ключ не найден, файл не изменён")
+else:
+    io.open(p, "w", encoding="cp1251", errors="surrogateescape", newline="").write(new)
+PY
+iconv -f cp1251 -t utf-8 "$INI" | grep -aiE "^$KEY=" | tr -d '\r' | sed 's/^/   стало: /'
+
+echo "=== 3) все отличия от бэкапа ==="
+diff <(iconv -f cp1251 -t utf-8 "$INI.backup-$STAMP" | tr -d '\r') \
+     <(iconv -f cp1251 -t utf-8 "$INI" | tr -d '\r') | sed 's/^/   /'
+echo "   откат: cp $INI.backup-$STAMP $INI"
+SCRIPT_EOF
+chmod +x $HOME/.local/bin/d2-ini-set.sh 2>/dev/null || true
+```
+
+### 9. Разрешение картинки игры (DisplayWidth/DisplayHeight)
+
+```bash
+mkdir -p $(dirname $HOME/.local/bin/set-resolution.sh)
+cat > $HOME/.local/bin/set-resolution.sh << 'SCRIPT_EOF'
+#!/bin/bash
+# set-resolution.sh <ширина> <высота> — разрешение картинки игры в Disciple.ini (секция [Wrapper]).
+#
+# На Zero 3W экран 1024×600, поэтому рабочее значение 1024 600: игра рисует ровно
+# в режим экрана и кадр не растягивается (по умолчанию сборка идёт с 800×600).
+# Требует HD=1 — без него нестандартные разрешения не работают.
+#
+# Использование: ./set-resolution.sh 1024 600
+set -u
+GAME="${GAME_DIR:-$HOME/d2-ru-pack/app}"
+INI="$GAME/Disciple.ini"
+W="${1:?нужна ширина, например 1024}"
+H="${2:?нужна высота, например 600}"
+SET="$(dirname "$0")/d2-ini-set.sh"
+
+[ -f "$SET" ] || SET="$HOME/.local/bin/d2-ini-set.sh"
+[ -f "$INI" ] || { echo "нет файла $INI (задайте GAME_DIR)"; exit 1; }
+
+echo "=== проверяю, что HD включён (иначе разрешение не подействует) ==="
+iconv -f cp1251 -t utf-8 "$INI" | grep -aiE '^HD=' | tr -d '\r' | sed 's/^/   /'
+
+"$SET" DisplayWidth  "$W"
+"$SET" DisplayHeight "$H"
+
+echo "=== проверка на живом окне (если игра запущена) ==="
+export DISPLAY="${DISPLAY:-:0}"
+W_ID=$(xdotool search --name 'Disciples' 2>/dev/null | head -1)
+if [ -n "$W_ID" ]; then
+    xdotool getwindowgeometry --shell "$W_ID" 2>/dev/null | grep -aE 'WIDTH|HEIGHT' | sed 's/^/   окно: /'
+else
+    echo "   игра не запущена — размер окна проверить нечем, запустите и гляньте:"
+    echo "   DISPLAY=:0 xdotool search --name 'Disciples' | xargs -I{} xdotool getwindowgeometry --shell {}"
+fi
+echo "   режим экрана: $(xrandr 2>/dev/null | grep -aE ' connected|\*' | tr '\n' ' ')"
+echo
+echo "Дальше по вкусу (см. docs/WRAPPER-AND-GAME-SETTINGS.md):"
+echo "   ImageAspect=1 — сохранять пропорции; Upscaling=1..5 — фильтры xBRZ/ScaleHQ/Eagle"
+echo "   SpeedEnabled=0 — выключить ускоритель анимации обёртки (GameSpeed=5 = 1,5×)"
+SCRIPT_EOF
+chmod +x $HOME/.local/bin/set-resolution.sh 2>/dev/null || true
+```
+
+### 10. Снимок состояния игры: окно, настройки, бэкапы
+
+```bash
+mkdir -p $(dirname $HOME/.local/bin/verify-game-state.sh)
+cat > $HOME/.local/bin/verify-game-state.sh << 'SCRIPT_EOF'
+#!/bin/bash
+# verify-game-state.sh — снимок состояния игры: запущена ли, какое окно, что в настройках.
+# Только чтение, ничего не меняет. Удобно перед правкой Disciple.ini и после неё.
+set -u
+GAME="${GAME_DIR:-$HOME/d2-ru-pack/app}"
+INI="$GAME/Disciple.ini"
+export DISPLAY="${DISPLAY:-:0}"
+
+echo "=== процесс и окно ==="
+P=$(pgrep -x Discipl2.exe | head -1)
+if [ -n "$P" ]; then
+    echo "   Discipl2.exe: PID $P, CPU $(ps -p "$P" -o pcpu= | xargs)%, работает $(ps -p "$P" -o etime= | xargs), RSS $(ps -p "$P" -o rss= | xargs | awk '{printf "%.0f МБ", $1/1024}')"
+    W=$(xdotool search --name 'Disciples' 2>/dev/null | head -1)
+    [ -n "$W" ] && echo "   окно: $(xdotool getwindowgeometry --shell "$W" | grep -aE 'WIDTH|HEIGHT' | tr '\n' ' ') (id $W)"
+else
+    echo "   не запущена (wineserver: $(pgrep -xc wineserver 2>/dev/null | head -1))"
+fi
+echo "   режим экрана: $(xrandr 2>/dev/null | grep -aE ' connected|\*' | tr '\n' ' ')"
+
+echo
+echo "=== настройки, которые сейчас в силе ==="
+[ -f "$INI" ] || { echo "   нет файла $INI"; exit 1; }
+iconv -f cp1251 -t utf-8 "$INI" | tr -d '\r' | grep -aE \
+ '^(DisplayMode|UseD3D|DisplayWidth|DisplayHeight|HD|ImageAspect|ImageVSync|Renderer|Interpolation|Upscaling|FullScreenMode|SpeedEnabled|GameSpeed|PlayerSpeed|OpponentSpeed|ScrollSpeed|BattleSpeed|BattleAnim|FastAI|MouseScroll)=' \
+ | sed 's/^/   /'
+
+echo
+echo "=== бэкапы настроек (последние 5) ==="
+ls -t "$GAME"/Disciple.ini.backup-* 2>/dev/null | head -5 | while read -r f; do
+    echo "   $(basename "$f")  $(stat -c '%y' "$f" | cut -c1-19)"
+done
+
+echo
+echo "=== GPU занята игрой? (софтверный DirectDraw её не берёт) ==="
+if [ -n "$P" ]; then
+    n=$(ls -l /proc/$P/fd 2>/dev/null | grep -ac renderD128)
+    echo "   дескрипторов на /dev/dri/renderD128: $n"
+else
+    echo "   игра не запущена"
+fi
+SCRIPT_EOF
+chmod +x $HOME/.local/bin/verify-game-state.sh 2>/dev/null || true
+```
+
+### 11. То же, что fix-mmdevenum, но файлом .reg
 
 ```bash
 mkdir -p $(dirname $HOME/mmdevenum-wow6432.reg)
@@ -747,7 +926,7 @@ SCRIPT_EOF
 chmod +x $HOME/mmdevenum-wow6432.reg 2>/dev/null || true
 ```
 
-### 9. То же, что fix-rpcss-service, но файлом .reg
+### 12. То же, что fix-rpcss-service, но файлом .reg
 
 ```bash
 mkdir -p $(dirname $HOME/rpcss-service.reg)
@@ -766,7 +945,7 @@ SCRIPT_EOF
 chmod +x $HOME/rpcss-service.reg 2>/dev/null || true
 ```
 
-### 10. Ярлык
+### 13. Ярлык
 
 ```bash
 mkdir -p $(dirname $HOME/.local/share/applications/disciples2.desktop)

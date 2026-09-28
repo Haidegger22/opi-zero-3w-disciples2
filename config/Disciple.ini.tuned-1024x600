@@ -1,0 +1,131 @@
+[Disciple]
+; 0=full-screen, 1 = windowed
+DisplayMode=0
+DisplaySize=0
+ForceD3DPow2=1
+RefreshRate=0
+; play sound tracks
+SoundFx=1
+Music=1
+PauseAudioRgnForAI=0
+Intro=1
+DisplayPathTurn=1
+EnableZoom=1
+SnapCursor=1
+UseD3D=0
+ShowInterfBorder=1
+[Settings]
+; delay in milliseconds before player can close an event popup message
+EventPopupDelay=500
+; Confirm end-of-turn
+ConfirmEOT=1
+; Auto-save after host's turn
+AutoSave=1
+; Volume (0 - 127)
+FxVolume=127
+MusicVolume=80
+; Unit acknoledgements (0 - 100)
+Acknoledgements=100
+; Audio regions (isometric view)
+AudioRegions=4
+; Animation speed (1 - normal; 2 - fast; 3 - very fast)
+PlayerSpeed=2
+OpponentSpeed=2
+; Scroll speed (0 - fast; 50 - normal; 100 - slow)
+ScrollSpeed=50
+; Battle Speed (1 - slow; 2 - normal; 3 - fast; 4 - instant)
+BattleSpeed=1
+; Extra battle animation (0 - off; 1 - on)
+BattleAnim=1
+; Default player name for campaign and skirmish
+DefPlayer=Ваше имя
+; allow battles or not when generating paths
+DefaultPathBattle=1
+QueueCommands=0
+DisplayPathTurn=1
+StickyEncy=0
+SmoothScroll=1
+StackSmoothScroll=1
+AnimatedIso=1
+IsoBirds=1
+LowEndVideoCard=0
+IsoHighlight=1
+HighAlpha=1
+[Installation]
+; 'Installed' for default folder under main folder
+; '[CD]' as a placeholder for drive containing game disk (ex: [CD]:\Imgs)
+; full path for exact location
+FullInstall=1
+globals=Installed
+imgs=Installed
+interf=Installed
+scenarios=Installed
+sounds=Installed
+soundsPopup=Installed
+music=Installed
+musicPopup=Installed
+video=Installed
+imgdata=Installed
+campaign=Installed
+exports=Installed
+savegame=Installed
+briefing=Installed
+scendata=Installed
+CustomMusic=
+[Wrapper]
+ReInit=0
+ShowBanners=0
+ShowResources=0
+SceneSort=0
+Renderer=0
+HD=1
+DisplayWidth=1024
+DisplayHeight=600
+ImageAspect=1
+ImageVSync=1
+Interpolation=2
+Upscaling=0
+Borders=1
+Background=1
+EnableZoom=1
+ZoomFactor=100
+FullScreenMode=0
+GameSpeed=3
+SpeedEnabled=0
+AlwaysActive=0
+ColdCPU=0
+WideBattle=0
+MirrorBattle=1
+ScreenshotType=1
+ScreenshotLevel=9
+Locale=1049
+MessageTimeout=15
+NoSSE2=0
+UpdateMode=1
+FastAI=0
+MouseScroll=3
+EdgeScroll=1
+EasyScroll=150
+CloudsFactor=1
+[FunktionKeys]
+ImageFilter=3
+WindowedMode=4
+AspectRatio=
+VSync=
+ZoomImage=
+SpeedToggle=5
+Screenshot=12
+[Colors]
+HueSat=32768500
+RgbInput=65536000
+RedInput=65536000
+GreenInput=65536000
+BlueInput=65536000
+RgbGamma=500
+RedGamma=500
+GreenGamma=500
+BlueGamma=500
+RgbOutput=65536000
+RedOutput=65536000
+GreenOutput=65536000
+BlueOutput=65536000

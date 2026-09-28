@@ -12,6 +12,11 @@
 - игра стартует и **открывает окно «Disciples II» за ~15 секунд**;
 - **работает полный экран**: окно занимает весь экран 1024×600 (`_NET_WM_STATE_FULLSCREEN`),
   включается ключом `DisplayMode=0` в `Disciple.ini` — см. `scripts/set-fullscreen.sh`;
+- **картинка рисуется в 1024×600 — ровно по режиму экрана**, без растяжения из 800×600
+  (в сборке по умолчанию стояло `DisplayWidth=800`): секция `[Wrapper]` файла `Disciple.ini`,
+  `HD=1` + `DisplayWidth/DisplayHeight` — см. `scripts/set-resolution.sh`; настройки графики,
+  скорости и периферии, которыми управляет русская обёртка `C4dll-R.dll`, разобраны в
+  **[docs/WRAPPER-AND-GAME-SETTINGS.md](docs/WRAPPER-AND-GAME-SETTINGS.md)**;
 - **звук идёт** через Bluetooth-колонку: в `pactl list sink-inputs` виден
   `application.name = "Disciples II v3.01"`, ошибок `dsound`/`mmdevapi` в логе нет;
   хрипы и «песок» убраны буфером **1024 кадра** (`scripts/fix-audio-buffer.sh`);
@@ -77,10 +82,20 @@ disc2-zero.sh
   пользователя: лечит хрипы, шипение и «песок» на Bluetooth-выводе (Wine просит 128 кадров —
   2,7 мс, и звук под нагрузкой не успевает заполняться).
 - `scripts/set-fullscreen.sh` — полный экран игры и возврат в окно (ключ `DisplayMode` в `Disciple.ini`).
+- `scripts/d2-ini-set.sh` — правка **одного** параметра `Disciple.ini` (файл в cp1251, поэтому не
+  `sed`): закрывает игру, делает бэкап, показывает диф «было/стало» и команду отката.
+- `scripts/set-resolution.sh` — разрешение картинки игры (`DisplayWidth`/`DisplayHeight` + проверка `HD=1`);
+  на этой плате — `1024 600`.
+- `scripts/verify-game-state.sh` — снимок состояния: запущена ли игра, какое окно, какие настройки
+  в силе, где лежат бэкапы, держит ли игра GPU.
+- `config/Disciple.ini.tuned-1024x600` — рабочий снимок настроек (подобранный на плате профиль:
+  разрешение 1024×600, `BattleSpeed=1`, ускоритель обёртки выключен).
 - `systemd/audio-buffer.service` — та же служба буфера, если ставить её вручную.
 - `reg/` — те же правки реестра в виде `.reg`-файлов (`wine reg import`).
 - `docs/` — разбор причин: `RPCSS-AND-COM-NOTES.md` (служба RpcSs, `WINE_REGISTRY`, баги WineHQ),
   `AUDIO-AND-VIDEO-NOTES.md` (звук, буфер, полный экран, замеры),
+  `WRAPPER-AND-GAME-SETTINGS.md` (устройство `Disciple.ini`: секции, справочник параметров русской
+  обёртки из её же строк, разрешение 1024×600, разбор «бой стал быстрее» — ускоритель `SpeedEnabled`),
   `RENDERER-EXPERIMENTS.md` (попытки аппаратного рендера: cnc-ddraw и `UseD3D=1` — оба дали
   чёрный/белый экран и откачены; игра рисуется встроенным DirectDraw).
 
