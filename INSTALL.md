@@ -111,9 +111,32 @@ GAME_DIR=/путь/к/игре disc2-zero.sh
 Ожидаемое: `окно=117440513` и заголовок `Disciples II` в первые 15–30 секунд,
 в `pactl list sink-inputs` — поток `Disciples II v3.01`, в логе — `всего err-строк: 0`.
 
+## Шаг 9. Звук: буфер 1024 кадра (лечит хрипы и «песок»)
+
+```bash
+~/.local/bin/fix-audio-buffer.sh
+```
+
+Скрипт поднимает буфер звукового графа с 2,7 мс до 21 мс и закрепляет это службой пользователя,
+чтобы настройка возвращалась после перезагрузки. В конце должно быть
+`ИТОГ: буфер 1024 держится и возвращается после перезапуска ✔`.
+Откат: `systemctl --user disable --now audio-buffer.service`.
+
+## Шаг 10. Полный экран
+
+```bash
+~/.local/bin/set-fullscreen.sh            # весь экран
+~/.local/bin/set-fullscreen.sh windowed   # вернуть окно
+~/.local/bin/set-fullscreen.sh test       # включить и сразу проверить геометрию
+```
+
+Скрипт правит ключ `DisplayMode` в `Disciple.ini` (в самом файле подсказка: `0=full-screen,
+1=windowed`), рядом остаётся бэкап `Disciple.ini.backup-ГГГГММДД-ЧЧММ`.
+
 ## Важно
 
-- Плата: вывод звука только через **HDMI** (ALSA-карта `allwinner-hdmi`).
+- Вывод звука на этой плате: **Bluetooth-колонка** (A2DP, кодек SBC) либо **HDMI**
+  (ALSA-карта `allwinner-hdmi`). Аналогового выхода нет.
 - `LD_LIBRARY_PATH` внутри лаунчера переопределяется на системный намеренно: вендорские
   `libEGL/libGLESv2` от PowerVR ломают создание GL-контекста у Wine.
 - Скрипты **меняют реестр профиля Wine** (с бэкапом `system.reg.backup-ГГГГММДД-ЧЧММ`
@@ -546,7 +569,168 @@ SCRIPT_EOF
 chmod +x $HOME/.local/bin/verify-launcher.sh 2>/dev/null || true
 ```
 
-### 6. То же, что fix-mmdevenum, но файлом .reg
+### 6. Постоянный буфер звука 1024 кадра (лечит хрипы)
+
+```bash
+mkdir -p $(dirname $HOME/.local/bin/fix-audio-buffer.sh)
+cat > $HOME/.local/bin/fix-audio-buffer.sh << 'SCRIPT_EOF'
+#!/bin/bash
+# fix-audio-buffer.sh — постоянный буфер звука 1024 кадра (≈21 мс) для Zero 3W.
+#
+# ПРОБЛЕМА
+#   PipeWire отдаёт Bluetooth-выводу период 128 кадров (≈2,7 мс — один SBC-кадр).
+#   Под нагрузкой (Wine + программный рендеринг llvmpipe) звук не успевает заполнять
+#   такой мелкий буфер: слышны хрипы, шипение, «песок», рывки.
+#   Wine к тому же сам просит низкую задержку — поэтому одного default.clock.quantum
+#   НЕ хватает: он только «по умолчанию», клиент может попросить меньше.
+#
+# РЕШЕНИЕ
+#   Жёсткий force-quantum=1024 (перебивает запросы приложений) + служба пользователя,
+#   чтобы настройка возвращалась после каждой перезагрузки и рестарта PipeWire.
+#   Проверено на слух владельцем 28.09.2026: «оставляем, мне нравится».
+#
+# Использование: ./fix-audio-buffer.sh [квант]     # по умолчанию 1024
+# Откат: systemctl --user disable --now audio-buffer.service && rm ~/.config/systemd/user/audio-buffer.service
+set -u
+
+Q="${1:-1024}"
+UNIT_DIR="$HOME/.config/systemd/user"
+UNIT="$UNIT_DIR/audio-buffer.service"
+
+echo "=== 1) ставлю буфер на лету (сразу слышно, без перезагрузки) ==="
+pw-metadata -n settings 0 clock.force-quantum "$Q" 2>&1 | tail -1 | sed 's/^/   /'
+sleep 1
+pw-metadata -n settings 2>/dev/null | grep -a 'force-quantum' | sed 's/^/   сейчас: /'
+
+echo
+echo "=== 2) создаю службу пользователя, чтобы настройка жила после перезагрузки ==="
+mkdir -p "$UNIT_DIR"
+cat > "$UNIT" <<EOF
+[Unit]
+Description=Force PipeWire quantum $Q (звук BT-колонки, Orange Pi Zero 3W)
+After=pipewire.service wireplumber.service
+PartOf=pipewire.service
+Requisite=pipewire.service
+
+[Service]
+Type=oneshot
+ExecStart=/bin/sh -c 'sleep 3; exec /usr/bin/pw-metadata -n settings 0 clock.force-quantum $Q'
+RemainAfterExit=yes
+
+[Install]
+WantedBy=pipewire.service
+EOF
+echo "   создан: $UNIT"
+
+echo
+echo "=== 3) включаю ==="
+systemctl --user daemon-reload
+systemctl --user enable audio-buffer.service 2>&1 | tail -1 | sed 's/^/   /'
+systemctl --user restart audio-buffer.service 2>&1 | tail -1 | sed 's/^/   /'
+sleep 5
+echo "   служба: $(systemctl --user is-active audio-buffer.service) / $(systemctl --user is-enabled audio-buffer.service)"
+
+echo
+echo "=== 4) проверка: перезапускаю PipeWire — буфер должен вернуться сам ==="
+systemctl --user restart pipewire pipewire-pulse wireplumber
+sleep 7
+V=$(pw-metadata -n settings 2>/dev/null | grep -a 'force-quantum')
+echo "   $V"
+if echo "$V" | grep -q "value:'$Q'"; then
+    echo "=== ИТОГ: буфер $Q держится и возвращается после перезапуска ✔"
+    echo "    Откат: systemctl --user disable --now audio-buffer.service; rm -f $UNIT"
+else
+    echo "=== ИТОГ: не применилось — проверьте вывод выше"
+    exit 1
+fi
+SCRIPT_EOF
+chmod +x $HOME/.local/bin/fix-audio-buffer.sh 2>/dev/null || true
+```
+
+### 7. Полный экран игры / возврат в окно
+
+```bash
+mkdir -p $(dirname $HOME/.local/bin/set-fullscreen.sh)
+cat > $HOME/.local/bin/set-fullscreen.sh << 'SCRIPT_EOF'
+#!/bin/bash
+# set-fullscreen.sh — полный экран / окно для Disciples II (файл Disciple.ini, ключ DisplayMode).
+#
+# Сам файл игры подсказывает: «; 0=full-screen, 1 = windowed» — это про DisplayMode.
+# Проверено на Zero 3W 28.09.2026: при DisplayMode=0 окно игры занимает весь экран
+# 1024x600 (xdotool: X=0 Y=0 WIDTH=1024 HEIGHT=600, _NET_WM_STATE_FULLSCREEN).
+#
+# Использование:
+#     ./set-fullscreen.sh            # включить полный экран (DisplayMode=0)
+#     ./set-fullscreen.sh windowed   # вернуть окно (DisplayMode=1)
+#     ./set-fullscreen.sh test       # включить полный экран и проверить геометрию запуском
+#
+# Правка идёт в копии файла игры; бэкап создаётся рядом (Disciple.ini.backup-ГГГГММДД-ЧЧММ).
+# Откат: cp Disciple.ini.backup-* Disciple.ini
+set -u
+export DISPLAY="${DISPLAY:-:0}"
+
+GAME_DIR="${GAME_DIR:-$HOME/d2-ru-pack/app}"
+INI="$GAME_DIR/Disciple.ini"
+export WINEPREFIX="${WINEPREFIX:-$HOME/.wine-hg2}"
+MODE="${1:-full}"
+
+case "$MODE" in
+    windowed|1) VAL=1; WORD="окно" ;;
+    full|0|*)   VAL=0; WORD="полный экран" ;;
+esac
+
+[ -f "$INI" ] || { echo "Не найден $INI — проверьте GAME_DIR"; exit 1; }
+
+echo "=== 1) бэкап и текущее значение ==="
+STAMP=$(date +%Y%m%d-%H%M)
+cp -a "$INI" "$INI.backup-$STAMP" && echo "   бэкап: $INI.backup-$STAMP"
+echo "   было: $(grep -a DisplayMode "$INI" | tr -d '\r')"
+
+echo
+echo "=== 2) ставлю DisplayMode=$VAL ($WORD) ==="
+python3 - "$INI" "$VAL" <<'PY'
+import sys, io, re
+p, val = sys.argv[1], sys.argv[2]
+with io.open(p, 'r', encoding='cp1251', errors='surrogateescape', newline='') as f:
+    data = f.read()
+out = re.sub(r'(?m)^DisplayMode\s*=\s*\d+', 'DisplayMode=%s' % val, data)
+with io.open(p, 'w', encoding='cp1251', errors='surrogateescape', newline='') as f:
+    f.write(out)
+print("   стало:", [l.strip() for l in out.splitlines() if l.startswith('DisplayMode')])
+PY
+
+if [ "$MODE" = "test" ]; then
+    echo
+    echo "=== 3) проверка запуском (30 с) ==="
+    timeout -s KILL 25 wineserver -k 2>/dev/null; sleep 2
+    pkill -x Discipl2.exe 2>/dev/null; sleep 1
+    cd "$GAME_DIR" || exit 1
+    env -u LD_LIBRARY_PATH \
+        LD_LIBRARY_PATH=/usr/lib/aarch64-linux-gnu:/lib/aarch64-linux-gnu \
+        WINEDLLOVERRIDES="ddraw=b;d3d8=b;d3d9=b;d3d10core=b;d3d11=b;dxgi=b" \
+        nohup wine Discipl2.exe > /tmp/fullscreen-check.log 2>&1 &
+    for t in 10 20 30; do
+        sleep 10
+        W=$(xdotool search --name "Disciples" 2>/dev/null | head -1)
+        [ -n "$W" ] && break
+    done
+    if [ -n "$W" ]; then
+        echo "   окно: $(xdotool getwindowgeometry --shell "$W" | tr '\n' ' ')"
+        echo "   состояние: $(xprop -id "$W" _NET_WM_STATE 2>/dev/null | cut -d= -f2)"
+    else
+        echo "   окно не появилось, лог: /tmp/fullscreen-check.log"
+    fi
+    pkill -x Discipl2.exe 2>/dev/null; sleep 2
+    timeout -s KILL 30 wineserver -k 2>/dev/null
+fi
+
+echo
+echo "=== ИТОГ: DisplayMode=$(grep -a DisplayMode "$INI" | tr -d '\r' | cut -d= -f2)"
+SCRIPT_EOF
+chmod +x $HOME/.local/bin/set-fullscreen.sh 2>/dev/null || true
+```
+
+### 8. То же, что fix-mmdevenum, но файлом .reg
 
 ```bash
 mkdir -p $(dirname $HOME/mmdevenum-wow6432.reg)
@@ -563,7 +747,7 @@ SCRIPT_EOF
 chmod +x $HOME/mmdevenum-wow6432.reg 2>/dev/null || true
 ```
 
-### 7. То же, что fix-rpcss-service, но файлом .reg
+### 9. То же, что fix-rpcss-service, но файлом .reg
 
 ```bash
 mkdir -p $(dirname $HOME/rpcss-service.reg)
@@ -582,7 +766,7 @@ SCRIPT_EOF
 chmod +x $HOME/rpcss-service.reg 2>/dev/null || true
 ```
 
-### 8. Ярлык
+### 10. Ярлык
 
 ```bash
 mkdir -p $(dirname $HOME/.local/share/applications/disciples2.desktop)

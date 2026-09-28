@@ -1,0 +1,17 @@
+[Unit]
+Description=Force PipeWire quantum 1024 (звук BT-колонки, Orange Pi Zero 3W)
+Documentation=https://github.com/Haidegger22/opi-zero-3w-disciples2
+After=pipewire.service wireplumber.service
+PartOf=pipewire.service
+Requisite=pipewire.service
+
+[Service]
+Type=oneshot
+# ждём, пока PipeWire поднимет сокет, и жёстко ставим буфер 1024 кадра (≈21 мс).
+# Именно force-quantum (а не quantum): перебивает запросы приложений — Wine просит
+# 128 кадров (≈2,7 мс, один SBC-кадр), на таком буфере звук хрипит под нагрузкой.
+ExecStart=/bin/sh -c 'sleep 3; exec /usr/bin/pw-metadata -n settings 0 clock.force-quantum 1024'
+RemainAfterExit=yes
+
+[Install]
+WantedBy=pipewire.service

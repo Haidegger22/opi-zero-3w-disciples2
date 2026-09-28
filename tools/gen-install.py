@@ -15,6 +15,8 @@ FILES = [
     ("scripts/fix-rpcss-service.sh",   "$HOME/.local/bin/fix-rpcss-service.sh",   "Регистрация службы RpcSs (RPC/OLE)"),
     ("scripts/diagnose-wine-prefix.sh","$HOME/.local/bin/diagnose-wine-prefix.sh","Диагностика профиля Wine"),
     ("scripts/verify-launcher.sh",     "$HOME/.local/bin/verify-launcher.sh",     "Проверка запуска (окно + звук)"),
+    ("scripts/fix-audio-buffer.sh",    "$HOME/.local/bin/fix-audio-buffer.sh",    "Постоянный буфер звука 1024 кадра (лечит хрипы)"),
+    ("scripts/set-fullscreen.sh",      "$HOME/.local/bin/set-fullscreen.sh",      "Полный экран игры / возврат в окно"),
     ("reg/mmdevenum-wow6432.reg",      "$HOME/mmdevenum-wow6432.reg",             "То же, что fix-mmdevenum, но файлом .reg"),
     ("reg/rpcss-service.reg",          "$HOME/rpcss-service.reg",                 "То же, что fix-rpcss-service, но файлом .reg"),
     ("desktop/disciples2.desktop",     "$HOME/.local/share/applications/disciples2.desktop", "Ярлык"),

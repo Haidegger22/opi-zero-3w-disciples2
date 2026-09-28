@@ -9,10 +9,14 @@
 
 ## Статус (проверено на плате 28.09.2026)
 
-- игра стартует и **открывает окно «Disciples II» за ~15 секунд** (800×534);
-- **звук идёт реальным потоком** в PipeWire: в `pactl list sink-inputs` виден
-  `application.name = "Disciples II v3.01"`;
-- лог запуска **чистый: 0 строк с `err:`**;
+- игра стартует и **открывает окно «Disciples II» за ~15 секунд**;
+- **работает полный экран**: окно занимает весь экран 1024×600 (`_NET_WM_STATE_FULLSCREEN`),
+  включается ключом `DisplayMode=0` в `Disciple.ini` — см. `scripts/set-fullscreen.sh`;
+- **звук идёт** через Bluetooth-колонку: в `pactl list sink-inputs` виден
+  `application.name = "Disciples II v3.01"`, ошибок `dsound`/`mmdevapi` в логе нет;
+  хрипы и «песок» убраны буфером **1024 кадра** (`scripts/fix-audio-buffer.sh`);
+- в логе остаются **безобидные** строки OLE (`StdMarshalImpl … 0x80004002`, ненайденный класс
+  DirectShow) — игре не мешают, разбор в `docs/AUDIO-AND-VIDEO-NOTES.md`;
 - рабочий профиль: `~/.wine-hg2`, каталог игры: `~/d2-ru-pack/app`.
 
 Чтобы это заработало, пришлось обойти две независимые проблемы — обе разобраны и
@@ -65,8 +69,14 @@ disc2-zero.sh
   есть ли класс звука, отвечает ли SCM; в конце печатает вердикт и что делать.
 - `scripts/verify-launcher.sh` — проверка «как у пользователя»: запускает лаунчер,
   ждёт окно `xdotool`-ом, смотрит звуковой поток и ошибки в логе.
-- `reg/` — те же правки в виде `.reg`-файлов (`wine reg import`).
-- `docs/` — разбор причин: RpcSs, `WINE_REGISTRY`, баги WineHQ.
+- `scripts/fix-audio-buffer.sh` — закрепляет буфер звука **1024 кадра (≈21 мс)** службой
+  пользователя: лечит хрипы, шипение и «песок» на Bluetooth-выводе (Wine просит 128 кадров —
+  2,7 мс, и звук под нагрузкой не успевает заполняться).
+- `scripts/set-fullscreen.sh` — полный экран игры и возврат в окно (ключ `DisplayMode` в `Disciple.ini`).
+- `systemd/audio-buffer.service` — та же служба буфера, если ставить её вручную.
+- `reg/` — те же правки реестра в виде `.reg`-файлов (`wine reg import`).
+- `docs/` — разбор причин: `RPCSS-AND-COM-NOTES.md` (служба RpcSs, `WINE_REGISTRY`, баги WineHQ),
+  `AUDIO-AND-VIDEO-NOTES.md` (звук, буфер, полный экран, замеры).
 
 ## Ограничения и что НЕ проверено
 
