@@ -1,0 +1,8 @@
+Windows Registry Editor Version 5.00
+
+[HKEY_LOCAL_MACHINE\Software\Classes\Wow6432Node\CLSID\{bcde0395-e52f-467c-8e3d-c4579291692e}]
+@="MMDeviceEnumerator Object"
+
+[HKEY_LOCAL_MACHINE\Software\Classes\Wow6432Node\CLSID\{bcde0395-e52f-467c-8e3d-c4579291692e}\InprocServer32]
+@="C:\\windows\\syswow64\\mmdevapi.dll"
+"ThreadingModel"="Both"

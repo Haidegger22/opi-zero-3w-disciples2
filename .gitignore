@@ -1,0 +1,28 @@
+# секреты и «удостоверения» машины
+.env
+*.env
+*.pem
+*.key
+id_*
+*_askpass.sh
+*_identity
+*_address.txt
+
+# бэкапы реестра профиля Wine (в них — машинные ключи и пути)
+*.reg.backup-*
+system.reg.backup-*
+user.reg.backup-*
+
+# логи и мусор прогонов
+*.log
+/tmp/
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# сама игра и профиль Wine — не в git
+app/
+d2-ru-pack/
+.wine*/
+/wineprefix/

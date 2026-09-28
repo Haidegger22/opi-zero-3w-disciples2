@@ -1,0 +1,13 @@
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=Disciples II: Gold (русская версия)
+Name[en]=Disciples II: Gold (Russian)
+Comment=Запуск Disciples II: Gold через Wine (Hangover) на Orange Pi Zero 3W
+Comment[en]=Launch Disciples II: Gold with Wine (Hangover) on Orange Pi Zero 3W
+Exec=/home/orangepi/.local/bin/disc2-zero.sh
+Icon=/home/orangepi/.local/share/icons/disciples2.png
+Terminal=false
+Categories=Game;StrategyGame;
+Keywords=disciples;strategy;wine;
+StartupNotify=true

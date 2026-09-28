@@ -1,0 +1,10 @@
+Windows Registry Editor Version 5.00
+
+[HKEY_LOCAL_MACHINE\System\CurrentControlSet\Services\RpcSs]
+"Type"=dword:00000010
+"Start"=dword:00000003
+"ImagePath"="C:\\windows\\system32\\rpcss.exe"
+"ObjectName"="LocalSystem"
+"DisplayName"="Remote Procedure Call (RPC)"
+"Description"="RPC service"
+"ErrorControl"=dword:00000001
