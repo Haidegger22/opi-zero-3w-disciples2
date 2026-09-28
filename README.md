@@ -76,6 +76,11 @@ disc2-zero.sh
   `err:wgl:internal_context_create Failed to create internal thread context`), и профиль
   остаётся без служб и без части реестровых веток. Проверено: в свежем профиле
   `system.reg` содержит 18 ключей, 0 служб и 0 классов CLSID.
+  **Проверено также, что это не лечится программным GL** (`LIBGL_ALWAYS_SOFTWARE=1
+  GALLIUM_DRIVER=llvmpipe MESA_LOADER_DRIVER_OVERRIDE=llvmpipe`): сообщение `wgl` из лога
+  исчезает, установка доходит до ~8750 ключей и ~2400 классов CLSID, но зависание
+  остаётся, а из 19 служб `wine.inf` создаётся **0** (класс звука тоже не появляется).
+  То есть `wgl:internal_context_create` — симптом, а не причина.
 - Проверено на **этой** плате и **этой** сборке игры. На другом железе/дистрибутиве
   набор библиотек и `LD_LIBRARY_PATH` могут отличаться.
 - Звук на Zero 3W выводится через HDMI (ALSA-карта `allwinner-hdmi`) — аналогового выхода нет.
