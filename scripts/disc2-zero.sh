@@ -20,7 +20,7 @@
 set -u
 
 # --- 1) чистка мёртвых сессий Wine ---
-timeout 25 wineserver -k 2>/dev/null; sleep 2
+timeout -s KILL 25 wineserver -k 2>/dev/null; sleep 2
 pkill -x Discipl2.exe 2>/dev/null; sleep 1
 pkill -x wineserver 2>/dev/null; sleep 1
 rm -f /tmp/.wine-1000/server-* 2>/dev/null

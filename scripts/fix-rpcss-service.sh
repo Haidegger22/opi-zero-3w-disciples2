@@ -42,7 +42,7 @@ cp -a "$W/system.reg" "$W/system.reg.backup-$STAMP" && echo "   system.reg.backu
 
 echo
 echo "=== 2) состояние ДО (sc query)"
-timeout 60 wine sc query RpcSs 2>&1 | grep -aviE 'actctx|^\s*$' | head -6 | sed 's/^/   /'
+timeout -s KILL 60 wine sc query RpcSs 2>&1 | grep -aviE 'actctx|^\s*$' | head -6 | sed 's/^/   /'
 echo "   (ошибка 1060 = «служба не существует» — это наш случай)"
 
 echo
@@ -63,21 +63,21 @@ wine reg import "$REG" 2>&1 | grep -aviE 'actctx|^\s*$' | sed 's/^/   /'
 
 echo
 echo "=== 4) перезапуск диспетчера служб (SCM кэширует базу служб на старте)"
-timeout 30 wineserver -k 2>/dev/null
+timeout -s KILL 30 wineserver -k 2>/dev/null
 sleep 2
 
 echo
 echo "=== 5) проверка"
-timeout 60 wine sc query RpcSs 2>&1 | grep -aviE 'actctx|^\s*$' | sed 's/^/   /'
+timeout -s KILL 60 wine sc query RpcSs 2>&1 | grep -aviE 'actctx|^\s*$' | sed 's/^/   /'
 echo "   --- старт службы:"
-timeout 60 wine sc start RpcSs 2>&1 | grep -aviE 'actctx|^\s*$' | sed 's/^/   /'
+timeout -s KILL 60 wine sc start RpcSs 2>&1 | grep -aviE 'actctx|^\s*$' | sed 's/^/   /'
 
 echo
 echo "=== 6) ключ в system.reg (пишется как ControlSet001 — CurrentControlSet это ссылка)"
 grep -an -A9 'Services\\\\RpcSs' "$W/system.reg" 2>/dev/null | head -14 | sed 's/^/   /'
 
 echo
-if timeout 60 wine sc query RpcSs 2>&1 | grep -q 'SERVICE_NAME'; then
+if timeout -s KILL 60 wine sc query RpcSs 2>&1 | grep -q 'SERVICE_NAME'; then
     echo "=== ИТОГ: служба RpcSs зарегистрирована, SCM её видит ✔"
     echo "    STATE: 4 RUNNING в ответе sc start = стартует нормально"
 else

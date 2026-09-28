@@ -6,7 +6,7 @@ set -u
 export DISPLAY=:0
 
 echo "=== 0) чистим остатки прошлых запусков ==="
-timeout 25 wineserver -k 2>/dev/null; sleep 2
+timeout -s KILL 25 wineserver -k 2>/dev/null; sleep 2
 pkill -x Discipl2.exe 2>/dev/null; sleep 1
 echo "   Discipl2.exe: $(pgrep -x Discipl2.exe | wc -l)  wineserver: $(pgrep -x wineserver | wc -l)"
 
@@ -42,5 +42,5 @@ grep -a 'err:' /tmp/verify-launch.log 2>/dev/null | sed 's/^[0-9a-f]*://' | sort
 echo
 echo "=== 5) закрываю ==="
 pkill -x Discipl2.exe 2>/dev/null; sleep 2
-timeout 30 wineserver -k 2>/dev/null
+timeout -s KILL 30 wineserver -k 2>/dev/null
 echo "   игра: $(pgrep -x Discipl2.exe | wc -l) процессов"

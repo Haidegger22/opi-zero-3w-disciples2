@@ -173,7 +173,7 @@ cat > $HOME/.local/bin/disc2-zero.sh << 'SCRIPT_EOF'
 set -u
 
 # --- 1) чистка мёртвых сессий Wine ---
-timeout 25 wineserver -k 2>/dev/null; sleep 2
+timeout -s KILL 25 wineserver -k 2>/dev/null; sleep 2
 pkill -x Discipl2.exe 2>/dev/null; sleep 1
 pkill -x wineserver 2>/dev/null; sleep 1
 rm -f /tmp/.wine-1000/server-* 2>/dev/null
@@ -279,7 +279,7 @@ echo "   (пустой вывод = импорт без ошибок)"
 
 echo
 echo "=== 4) проверка через реестр (нужна пауза: wineserver сбрасывает реестр на диск)"
-timeout 30 wineserver -w 2>/dev/null
+timeout -s KILL 30 wineserver -w 2>/dev/null
 wine reg query "$KEY" 2>&1 | grep -aviE 'actctx|^\s*$' | sed 's/^/   /'
 wine reg query "${KEY}\\InprocServer32" 2>&1 | grep -aviE 'actctx|^\s*$' | sed 's/^/   /'
 
@@ -345,7 +345,7 @@ cp -a "$W/system.reg" "$W/system.reg.backup-$STAMP" && echo "   system.reg.backu
 
 echo
 echo "=== 2) состояние ДО (sc query)"
-timeout 60 wine sc query RpcSs 2>&1 | grep -aviE 'actctx|^\s*$' | head -6 | sed 's/^/   /'
+timeout -s KILL 60 wine sc query RpcSs 2>&1 | grep -aviE 'actctx|^\s*$' | head -6 | sed 's/^/   /'
 echo "   (ошибка 1060 = «служба не существует» — это наш случай)"
 
 echo
@@ -366,21 +366,21 @@ wine reg import "$REG" 2>&1 | grep -aviE 'actctx|^\s*$' | sed 's/^/   /'
 
 echo
 echo "=== 4) перезапуск диспетчера служб (SCM кэширует базу служб на старте)"
-timeout 30 wineserver -k 2>/dev/null
+timeout -s KILL 30 wineserver -k 2>/dev/null
 sleep 2
 
 echo
 echo "=== 5) проверка"
-timeout 60 wine sc query RpcSs 2>&1 | grep -aviE 'actctx|^\s*$' | sed 's/^/   /'
+timeout -s KILL 60 wine sc query RpcSs 2>&1 | grep -aviE 'actctx|^\s*$' | sed 's/^/   /'
 echo "   --- старт службы:"
-timeout 60 wine sc start RpcSs 2>&1 | grep -aviE 'actctx|^\s*$' | sed 's/^/   /'
+timeout -s KILL 60 wine sc start RpcSs 2>&1 | grep -aviE 'actctx|^\s*$' | sed 's/^/   /'
 
 echo
 echo "=== 6) ключ в system.reg (пишется как ControlSet001 — CurrentControlSet это ссылка)"
 grep -an -A9 'Services\\\\RpcSs' "$W/system.reg" 2>/dev/null | head -14 | sed 's/^/   /'
 
 echo
-if timeout 60 wine sc query RpcSs 2>&1 | grep -q 'SERVICE_NAME'; then
+if timeout -s KILL 60 wine sc query RpcSs 2>&1 | grep -q 'SERVICE_NAME'; then
     echo "=== ИТОГ: служба RpcSs зарегистрирована, SCM её видит ✔"
     echo "    STATE: 4 RUNNING в ответе sc start = стартует нормально"
 else
@@ -453,8 +453,8 @@ else
     fail=1
 fi
 echo "    ответ SCM:"
-timeout 60 wine sc query RpcSs 2>&1 | grep -aviE 'actctx|^\s*$' | head -6 | sed 's/^/      /'
-echo "      (exit-код sc: $(timeout 60 wine sc query RpcSs >/dev/null 2>&1; echo $?) — 1060 значит «службы нет»)"
+timeout -s KILL 60 wine sc query RpcSs 2>&1 | grep -aviE 'actctx|^\s*$' | head -6 | sed 's/^/      /'
+echo "      (exit-код sc: $(timeout -s KILL 60 wine sc query RpcSs >/dev/null 2>&1; echo $?) — 1060 значит «службы нет»)"
 
 echo
 echo "--- 3) COM-класс MMDeviceEnumerator (его отсутствие = нет звука, ошибка 80040154)"
@@ -467,7 +467,7 @@ else
     fail=1
 fi
 echo "    ответ реестра (HKLM\\Software\\Classes\\Wow6432Node\\CLSID\\$GUID):"
-timeout 60 wine reg query "HKLM\\Software\\Classes\\Wow6432Node\\CLSID\\$GUID" 2>&1 \
+timeout -s KILL 60 wine reg query "HKLM\\Software\\Classes\\Wow6432Node\\CLSID\\$GUID" 2>&1 \
     | grep -aviE 'actctx|^\s*$' | head -4 | sed 's/^/      /'
 
 echo
@@ -504,7 +504,7 @@ set -u
 export DISPLAY=:0
 
 echo "=== 0) чистим остатки прошлых запусков ==="
-timeout 25 wineserver -k 2>/dev/null; sleep 2
+timeout -s KILL 25 wineserver -k 2>/dev/null; sleep 2
 pkill -x Discipl2.exe 2>/dev/null; sleep 1
 echo "   Discipl2.exe: $(pgrep -x Discipl2.exe | wc -l)  wineserver: $(pgrep -x wineserver | wc -l)"
 
@@ -540,7 +540,7 @@ grep -a 'err:' /tmp/verify-launch.log 2>/dev/null | sed 's/^[0-9a-f]*://' | sort
 echo
 echo "=== 5) закрываю ==="
 pkill -x Discipl2.exe 2>/dev/null; sleep 2
-timeout 30 wineserver -k 2>/dev/null
+timeout -s KILL 30 wineserver -k 2>/dev/null
 echo "   игра: $(pgrep -x Discipl2.exe | wc -l) процессов"
 SCRIPT_EOF
 chmod +x $HOME/.local/bin/verify-launcher.sh 2>/dev/null || true

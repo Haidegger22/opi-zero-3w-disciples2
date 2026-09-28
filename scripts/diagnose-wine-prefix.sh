@@ -55,8 +55,8 @@ else
     fail=1
 fi
 echo "    ответ SCM:"
-timeout 60 wine sc query RpcSs 2>&1 | grep -aviE 'actctx|^\s*$' | head -6 | sed 's/^/      /'
-echo "      (exit-код sc: $(timeout 60 wine sc query RpcSs >/dev/null 2>&1; echo $?) — 1060 значит «службы нет»)"
+timeout -s KILL 60 wine sc query RpcSs 2>&1 | grep -aviE 'actctx|^\s*$' | head -6 | sed 's/^/      /'
+echo "      (exit-код sc: $(timeout -s KILL 60 wine sc query RpcSs >/dev/null 2>&1; echo $?) — 1060 значит «службы нет»)"
 
 echo
 echo "--- 3) COM-класс MMDeviceEnumerator (его отсутствие = нет звука, ошибка 80040154)"
@@ -69,7 +69,7 @@ else
     fail=1
 fi
 echo "    ответ реестра (HKLM\\Software\\Classes\\Wow6432Node\\CLSID\\$GUID):"
-timeout 60 wine reg query "HKLM\\Software\\Classes\\Wow6432Node\\CLSID\\$GUID" 2>&1 \
+timeout -s KILL 60 wine reg query "HKLM\\Software\\Classes\\Wow6432Node\\CLSID\\$GUID" 2>&1 \
     | grep -aviE 'actctx|^\s*$' | head -4 | sed 's/^/      /'
 
 echo

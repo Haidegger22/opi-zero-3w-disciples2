@@ -64,7 +64,7 @@ echo "   (пустой вывод = импорт без ошибок)"
 
 echo
 echo "=== 4) проверка через реестр (нужна пауза: wineserver сбрасывает реестр на диск)"
-timeout 30 wineserver -w 2>/dev/null
+timeout -s KILL 30 wineserver -w 2>/dev/null
 wine reg query "$KEY" 2>&1 | grep -aviE 'actctx|^\s*$' | sed 's/^/   /'
 wine reg query "${KEY}\\InprocServer32" 2>&1 | grep -aviE 'actctx|^\s*$' | sed 's/^/   /'
 
